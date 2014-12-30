@@ -34,19 +34,26 @@ class NotEnoughPermutationsError(ValueError):
             'not enough permutations for more than {} items'.format(max_items))
 
 
-def pattern_create(length, sets=DEFAULT_PATTERN_SETS, width=4):
-    if length < 0:
+def pattern_create(length=None, sets=DEFAULT_PATTERN_SETS, alignment=None,
+                   allow_repeats=False):
+    if length is not None and length < 0:
         raise ValueError('length cannot be negative')
-    if width < 0:
-        raise ValueError('width cannot be negative')
+    if alignment is not None and alignment < 0:
+        raise ValueError('alignment cannot be negative')
     if length == 0:
         return []
-    if width == 0:
-        raise ValueError('width cannot be zero')
+    if alignment == 0:
+        raise ValueError('alignment cannot be zero')
+
     num_unique_blocks = reduce(operator.mul, (len(s) for s in sets))
     unique_block_items = num_unique_blocks * len(sets)
-    max_items = lcm(unique_block_items, width)
-    if length > max_items:
+    if alignment is None:
+        max_items = unique_block_items
+    else:
+        max_items = lcm(unique_block_items, alignment)
+    if length is None:
+        length = max_items
+    elif length > max_items and not allow_repeats:
         raise NotEnoughPermutationsError(max_items)
 
     return islice(cycle(weave(sets)), length)

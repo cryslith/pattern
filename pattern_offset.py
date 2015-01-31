@@ -10,25 +10,37 @@ from pattern import *
 
 def main(argv=None):
     argparser = argparse.ArgumentParser()
-    needle_group = argparser.add_mutually_exclusive_group(required=True)
-    needle_group.add_argument('needle', nargs='?')
-    needle_group.add_argument('--needle-string')
+    argparser.add_argument('needle',
+                           help=('the pattern substring or hex value to '
+                                 'search for'))
+    argparser.add_argument('-s', '--needle-string', action='store_true',
+                           help=('force interpretation of NEEDLE as a '
+                                 'string rather than a hex value'))
     haystack_group = argparser.add_mutually_exclusive_group()
-    haystack_group.add_argument('-f', '--haystack-file')
+    haystack_group.add_argument('-f', '--haystack-file',
+                                help=('the file containing the pattern to '
+                                      'search'))
     haystack_group.add_argument('sets', nargs='*',
-                                default=DEFAULT_PATTERN_SETS)
-    argparser.add_argument('-l', '--length', type=int, default=None)
-    argparser.add_argument('--fuzzy', action='store_true')
-    argparser.add_argument('-m', '--metasploit', action='store_true')
+                                default=DEFAULT_PATTERN_SETS,
+                                help=('the character sets from which the '
+                                      'pattern was created'))
+    argparser.add_argument('-l', '--length', type=int, default=None,
+                           help='the length of the original pattern')
+    argparser.add_argument('--fuzzy', action='store_true',
+                           help='search for inexact matches')
+    argparser.add_argument('-m', '--metasploit', action='store_true',
+                           help=("attempt to emulate the output from MSF's "
+                                 "'pattern_offset.rb' script.  "
+                                 'Implies --fuzzy'))
     if argv is None:
         args = argparser.parse_args()
     else:
         args = argparser.parse_args(argv)
 
-    if args.needle_string:
-        needle = args.needle_string
-    elif len(args.needle) == 4:
-            needle = args.needle.encode('utf-8')
+    # Try to guess whether we're looking at a byte string or hex digits.
+    if args.needle_string or (len(args.needle) == 4 and
+                              args.needle[:2] != '0x'):
+        needle = args.needle.encode('utf-8')
     else:
         try:
             needle_digits = (args.needle[2:] if args.needle[:2] == '0x'
@@ -106,7 +118,7 @@ def main(argv=None):
     for i in range(0, len(needle), 2):
         for c1 in range(256):
             for c2 in range(256):
-                new_needle = needle[:i] + bytes([c1, c2]) + needle[i+2:]
+                new_needle = needle[:i] + bytes([c1, c2]) + needle[i + 2:]
                 offset = haystack.find(new_needle)
                 while offset != -1:
                     found_any = True

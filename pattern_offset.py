@@ -3,9 +3,23 @@
 
 import argparse
 import sys
-import struct
 
 from pattern import *
+
+
+def int_bytes(n, le=True):
+    bs = []
+    while n > 0:
+        bs.append(n % 0x100)
+        n //= 0x100
+    return bytes(bs) if le else bytes(reversed(bs))
+
+
+def bytes_int(x, le=True):
+    n = 0
+    for b in reversed(needle) if le else needle:
+        needle_int *= 0x100
+        needle_int += b
 
 
 def main(argv=None):
@@ -41,13 +55,16 @@ def main(argv=None):
     if args.needle_string or (len(args.needle) == 4 and
                               args.needle[:2] != '0x'):
         needle = args.needle.encode('utf-8')
+        needle_int = bytes_int(needle)
     else:
         try:
             needle_digits = (args.needle[2:] if args.needle[:2] == '0x'
                              else args.needle)
-            needle = struct.pack('<I', int(needle_digits, 16))
+            needle_int = int(needle_digits, 16)
+            needle = int_bytes(needle_int)
         except ValueError:
             needle = args.needle.encode('utf-8')
+            needle_int = bytes_int(needle)
 
     if args.haystack_file:
         with open(args.haystack_file, 'rb') as f:
@@ -80,7 +97,7 @@ def main(argv=None):
 
     if not args.metasploit:
         print('Looking for endian reversal...', file=sys.stderr)
-        new_needle = struct.pack('>I', struct.unpack('<I', needle)[0])
+        new_needle = bytes(reversed(needle))
         found_any = False
         offset = haystack.find(new_needle)
         while offset != -1:
@@ -98,9 +115,8 @@ def main(argv=None):
             while offset != -1:
                 found_any = True
                 if args.metasploit:
-                    needle_int = struct.unpack('<I', needle)[0]
-                    mle = needle_int - struct.unpack('<I', new_needle)[0]
-                    mbe = needle_int - struct.unpack('>I', new_needle)[0]
+                    mle = needle_int - bytes_int(new_needle)
+                    mbe = needle_int - bytes_int(new_needle, le=False)
                     print('[+] Possible match at offset {} '
                           '(adjusted [ little-endian: {} | big-endian: {} ] ) '
                           'byte offset {}'.format(offset, mle, mbe, i))
@@ -123,9 +139,8 @@ def main(argv=None):
                 while offset != -1:
                     found_any = True
                     if args.metasploit:
-                        needle_int = struct.unpack('<I', needle)[0]
-                        mle = needle_int - struct.unpack('<I', new_needle)[0]
-                        mbe = needle_int - struct.unpack('>I', new_needle)[0]
+                        mle = needle_int - bytes_int(new_needle)
+                        mbe = needle_int - bytes_int(new_needle, le=False)
                         print('[+] Possible match at offset {} '
                               '(adjusted [ little-endian: {} '
                               '| big-endian: {} ] )'.format(offset, mle, mbe))
